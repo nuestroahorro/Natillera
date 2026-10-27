@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>La Cosecha</title>
 <meta name="theme-color" content="#1E5A3C">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Natillera">
 <meta name="description" content="Ahorro y préstamos entre socios. Entra con tu usuario y tu PIN.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="La Natillera 2025 - 2026">
@@ -201,7 +207,7 @@ var __snap=null,__snapS=null;
 function snapOf(){var r={};Object.keys(S.pagos).forEach(function(k){r['pago|'+k]=S.pagos[k];});
   S.prestamos.forEach(function(p){r['pr|'+p.id]=[p.capital,(p.pagosInt||[]).length,(p.abonos||[]).length,p.codigo,p.tasa].join(',');});
   S.sorteos.forEach(function(x){r['so|'+x.id]=[x.resultado,Object.keys(x.numeros||{}).length,Object.keys(x.numeros||{}).filter(function(k){return x.numeros[k].pagado;}).length,x.pago&&x.pago.transferido?1:0].join(',');});
-  S.socios.forEach(function(x){r['sc|'+x.id]=x.nombre+'|'+x.cuota;});
+  S.socios.forEach(function(x){r['sc|'+x.id]=x.nombre+'|'+x.cuota;r['pn|'+x.id]=x.pinSet?'1':'0';});
   (S.solicitudes||[]).forEach(function(x){r['sl|'+x.id]=x.estado;});(S.soportes||[]).forEach(function(x){r['sp|'+x.id]=x.estado;});
   r.otros=String((S.otros||[]).length);r.cfg=JSON.stringify(S.cfg);r.ret=String((S.retirados||[]).length);r.liq=String((S.liquidaciones||[]).length);r.gan=JSON.stringify(S.ganadores||[]);return r;}
 function logDiff(){
@@ -213,6 +219,7 @@ function logDiff(){
     if(p[0]==='pago')out.push(a===undefined?'Registró el pago de '+mesLabel(+p[2])+' de '+nm(p[1])+' ('+b+')':'Cambió el pago de '+mesLabel(+p[2])+' de '+nm(p[1]));
     else if(p[0]==='pr'){var pr=S.prestamos.filter(function(q){return q.id===+p[1];})[0];var n=pr?nombrePrest(pr):'';if(a===undefined)out.push('Creó el préstamo '+(pr?pr.codigo:'')+' de '+n+' por '+money(pr?pr.capital:0));else{var x=a.split(','),y=b.split(',');if(x[1]!==y[1])out.push('Registró un pago de interés en '+(pr?pr.codigo:'')+' ('+n+')');if(x[2]!==y[2])out.push('Registró un abono a capital en '+(pr?pr.codigo:'')+' ('+n+')');if(x[0]!==y[0]||x[3]!==y[3]||x[4]!==y[4])out.push('Modificó el préstamo '+(pr?pr.codigo:'')+' ('+n+')');}}
     else if(p[0]==='so'){var x2=(a||'').split(','),y2=b.split(',');if(x2[0]!==y2[0])out.push(y2[0]&&y2[0]!=='null'?'Guardó el resultado del sorteo: '+y2[0]:'Quitó el resultado de un sorteo');if(x2[1]!==y2[1])out.push('Cambió la reserva de números del fondo ganador');else if(x2[2]!==y2[2])out.push('Cambió el pago de números del fondo ganador');if(x2[3]!==y2[3]&&y2[3]==='1')out.push('Marcó transferido un premio del fondo ganador');}
+    else if(p[0]==='pn'){if(a==='1'&&b==='0')out.push('Restableció el PIN de '+nm(p[1]));}
     else if(p[0]==='sc')out.push(a===undefined?'Agregó al socio '+b.split('|')[0]:(a.split('|')[0]!==b.split('|')[0]?'Cambió el nombre de un socio':'Cambió la cuota de '+b.split('|')[0]+' a '+money(+b.split('|')[1])));
     else if(p[0]==='sl')out.push(a===undefined?'Se creó una solicitud de préstamo':'Solicitud de préstamo: pasó a "'+b+'"');
     else if(p[0]==='sp')out.push(a===undefined?'Se envió un soporte de pago':'Soporte de pago: pasó a "'+b+'"');
