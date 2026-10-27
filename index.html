@@ -1334,14 +1334,14 @@ function srvPatch(){
   (S.ganadores||[]).forEach(function(g){if(g.socio===me&&(S.leidas||{})['gan'+g.id]&&!SBASE.gan[g.id]){p.felicitaciones.push(g.id);n++;}});
   return n?p:null;
 }
-function srvAdoptar(est,v){S=fix(est);S.__v=v;srvBase();}
+function srvAdoptar(est,v){S=fix(est);S.__v=v;srvBase();try{__snap=snapOf();__snapS=S;}catch(e){}}
 function srvSave(){
   if(!CRED||!ui.user)return;var tipo=ui.user.type;
   if(tipo==='socio'){var p=srvPatch();if(!p)return;srvBusy(true);
     srv({accion:'socio',usuario:CRED.usuario,pin:CRED.pin,patch:p}).then(function(r){srvBusy(false);if(r.ok){srvAdoptar(r.estado,r.v);}else{alert('No se pudo guardar ('+(r.error||'error')+'). Intenta de nuevo.');}render();}).catch(function(){srvBusy(false);alert('Sin conexión con el servidor. Tu último cambio no se guardó.');});
   }else{srvBusy(true);var np=S.cfg.adminPin&&String(S.cfg.adminPin).length>=4?String(S.cfg.adminPin):null;
     srv({accion:'guardar',usuario:'admin',pin:CRED.pin,estado:S,v:S.__v}).then(function(r){srvBusy(false);
-      if(r.ok){S.__v=r.v;if(np){CRED.pin=np;}delete S.cfg.adminPin;SBASE=SBASE||{};}
+      if(r.ok){S.__v=r.v;if(np){CRED.pin=np;}delete S.cfg.adminPin;SBASE=SBASE||{};try{__snap=snapOf();__snapS=S;}catch(e){}}
       else if(r.error==='conflicto'){alert('Un socio hizo un cambio mientras trabajabas. Cargué la versión nueva: repite tu último cambio.');srvAdoptar(r.estado,r.v);}
       else{alert('No se pudo guardar ('+(r.error||'error')+').');}render();}).catch(function(){srvBusy(false);alert('Sin conexión con el servidor. Tu último cambio no se guardó.');});}
 }
