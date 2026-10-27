@@ -131,7 +131,7 @@ td.cell{text-align:center;cursor:pointer;padding:6px 4px;min-width:74px}
 .trf .rb{position:absolute;top:8px;right:10px}
 .felic{background:linear-gradient(135deg,#E3A72F,#F6E3B4 55%,#E3A72F);border:2px solid #b9801a;border-radius:16px;padding:14px;margin-bottom:12px;color:#4a3300;position:relative;box-shadow:0 4px 14px rgba(185,128,26,.35)}
 .felic h3{margin:0 0 4px;font-size:20px;color:#4a3300}.felic p{margin:2px 0}.felic .x{position:absolute;top:6px;right:10px;background:none;border:none;font-size:20px;color:#4a3300;cursor:pointer}
-</style>
+.pinbox input[name=nu]{letter-spacing:normal;text-align:left;font-size:1em}.ok-t{color:#1b7a3d;font-weight:600}.bad-t{color:#B3402F;font-weight:600}</style>
 </head>
 <body>
 <div id="app"></div>
@@ -504,10 +504,46 @@ function barraHerramientas(){
   var z=ui.zoom!=null?ui.zoom:zoomIdx();
   return '<div class="tools"><span class="muted" style="font-size:12px">Tamaño de letra</span><button data-act="zoom" data-d="-1" aria-label="Letra más pequeña"'+(z<=0?' disabled':'')+'>A−</button><button data-act="zoom" data-d="1" aria-label="Letra más grande"'+(z>=ZOOMS.length-1?' disabled':'')+'><b>A+</b></button>'+(yaInstalada()?'':'<span class="gap"></span><button data-act="instalar">Instalar app</button>')+'</div>';
 }
+
+var REC_KEY='natillera_ingreso';
+function recGet(){try{return JSON.parse(localStorage.getItem(REC_KEY)||'{}')||{};}catch(e){return {};}}
+function recSet(u,n){try{localStorage.setItem(REC_KEY,JSON.stringify({u:u,n:n}));}catch(e){}}
+function recClear(){try{localStorage.removeItem(REC_KEY);}catch(e){}}
+function pinFacil(a){return /^(\d)\1{5}$/.test(a)||'0123456789012'.indexOf(a)>=0||'9876543210987'.indexOf(a)>=0;}
+function usuarioErr(u){u=String(u||'').trim();if(u.length<3||u.length>20)return 'El usuario debe tener entre 3 y 20 caracteres.';if(!/^[A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ._-]+$/.test(u))return 'Usa solo letras, números, punto, guion o guion bajo (sin espacios).';if(['admin','administrador','administrator','root','natillera','cosecha'].indexOf(norm(u))>=0)return 'Ese usuario no está permitido.';return '';}
+function usuarioOcupadoLocal(u,idPropio){return S.socios.some(function(x){return x.id!==idPropio&&norm(usuarioDe(x))===norm(u);});}
+function srvErr(c){return {pin_debil:'Esa contraseña es muy fácil de adivinar. Elige otra.',usuario_ocupado:'Ese usuario ya existe. Elige otro.',usuario_invalido:'Ese usuario no es válido (3 a 20 letras o números, sin espacios).',incorrecto:'La contraseña actual no es correcta.',bloqueado:'Demasiados intentos. Espera 15 minutos.',igual:'La contraseña nueva debe ser distinta de la actual.',conflicto:'Intenta de nuevo.'}[c]||'No se pudo guardar. Intenta de nuevo.';}
+function checkUsuario(inp){
+  var el=document.getElementById('ulibre');if(!el||!ui.user)return;var u=String(inp.value||'').trim();clearTimeout(checkUsuario.t);
+  if(!u){el.className='help';el.textContent='';return;}
+  var e=usuarioErr(u);if(e){el.className='help bad-t';el.textContent='✗ '+e;return;}
+  var so=socioById(ui.user.id);if(so&&norm(usuarioDe(so))===norm(u)){el.className='help ok-t';el.textContent='✓ Disponible (es tu usuario actual)';return;}
+  if(!SERVER_URL){var oc=usuarioOcupadoLocal(u,ui.user.id);el.className='help '+(oc?'bad-t':'ok-t');el.textContent=oc?'✗ Ese usuario ya existe. Elige otro.':'✓ Disponible';return;}
+  el.className='help';el.textContent='Revisando…';
+  checkUsuario.t=setTimeout(function(){srv({accion:'usuarioLibre',usuario:CRED.usuario,pin:CRED.pin,candidato:u}).then(function(r){var e2=document.getElementById('ulibre');if(!e2||norm(inp.value)!==norm(u))return;if(!r.ok){e2.textContent='';return;}e2.className='help '+(r.libre?'ok-t':'bad-t');e2.textContent=r.libre?'✓ Disponible':'✗ Ese usuario ya existe. Elige otro.';}).catch(function(){});},350);
+}
+document.addEventListener('input',function(e){if(e.target&&e.target.dataset&&e.target.dataset.chkusr!=null)checkUsuario(e.target);});
+function mCuenta(so){
+  var o='<h2>Mi cuenta</h2><div class="card"><b>Tu usuario:</b> '+esc(usuarioDe(so))+'</div>';
+  if(ui.cmsg)o+='<div class="alert '+(ui.cmsg[0]?'ok':'bad')+'">'+esc(ui.cmsg[1])+'</div>';
+  o+='<div class="card"><h3>Cambiar mi usuario</h3><form data-form="cuentausr"><label>Usuario nuevo</label><input name="nu" data-chkusr="1" autocomplete="off" autocapitalize="none" placeholder="Ej.: camila"><div id="ulibre" class="help"></div><label>Tu contraseña actual (para confirmar)</label><input name="pw" type="password" inputmode="numeric" autocomplete="current-password"><div class="mt"><button class="btn primary">Cambiar usuario</button></div></form></div>';
+  o+='<div class="card"><h3>Cambiar mi contraseña</h3><form data-form="cuentapin"><label>Contraseña actual</label><input name="pw" type="password" inputmode="numeric" autocomplete="current-password"><label>Contraseña nueva (6 dígitos)</label><input name="p1" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"><label>Repite la contraseña nueva</label><input name="p2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"><div class="mt"><button class="btn primary">Cambiar contraseña</button></div></form></div>';
+  return o;
+}
+function srvCuenta(nu,a){srvBusy(true);
+  srv({accion:'crearCuenta',usuario:CRED.usuario,pin:CRED.pin,nuevoUsuario:nu,nuevoPin:a}).then(function(r){
+    if(!r.ok){srvBusy(false);ui.err=srvErr(r.error);render();return;}
+    CRED={usuario:nu,pin:a};recSet(nu,6);return srv({accion:'estado',usuario:nu,pin:a}).then(function(r2){srvBusy(false);if(r2.ok){srvAdoptar(r2.estado,r2.v);ui.err='';ui.nuevoU=null;ui.tab='estado';}render();});
+  }).catch(function(){srvBusy(false);ui.err='Sin conexión con el servidor.';render();});}
+function srvCuentaMod(extra,pw,onOk,msg){srvBusy(true);
+  srv(Object.assign({usuario:CRED.usuario,pin:pw},extra)).then(function(r){
+    if(!r.ok){srvBusy(false);ui.cmsg=[0,srvErr(r.error)];render();return;}
+    onOk();return srv({accion:'estado',usuario:CRED.usuario,pin:CRED.pin}).then(function(r2){srvBusy(false);if(r2.ok)srvAdoptar(r2.estado,r2.v);ui.cmsg=[1,msg];render();});
+  }).catch(function(){srvBusy(false);ui.cmsg=[0,'Sin conexión con el servidor.'];render();});}
 function viewSetPin(so){
-  var h='<div class="login"><div class="big">'+LOGO.replace('class="logo"','')+'<h2>Hola, '+esc(so.nombre.split(' ')[0])+'</h2><div class="muted">Crea tu propio PIN para proteger tu estado de cuenta</div></div><div class="card">';
+  var h='<div class="login"><div class="big">'+LOGO.replace('class="logo"','')+'<h2>¡Bienvenido/a, '+esc(so.nombre.split(' ')[0])+'!</h2><div class="muted">Crea tu usuario y tu contraseña nueva</div></div><div class="card">';
   if(ui.err)h+='<div class="alert bad">'+esc(ui.err)+'</div>';
-  h+='<form data-form="setpin" class="pinbox"><label>Nuevo PIN (6 dígitos)</label><input name="p1" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••••"><label>Repite el PIN</label><input name="p2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••••"><div class="mt"><button class="btn primary" style="width:100%">Guardar y entrar</button></div></form><p class="help mt">Solo tú lo sabrás. Si lo olvidas, el administrador puede restablecerlo. <a href="#" data-act="salir">Salir</a></p></div></div>';
+  h+='<form data-form="setpin" class="pinbox"><label>Tu usuario nuevo</label><input name="nu" data-chkusr="1" autocomplete="off" autocapitalize="none" value="'+esc(ui.nuevoU!=null?ui.nuevoU:usuarioDe(so))+'"><div id="ulibre" class="help"></div><label>Contraseña nueva (6 dígitos)</label><input name="p1" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••••"><label>Repite la contraseña</label><input name="p2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••••"><div class="mt"><button class="btn primary" style="width:100%">Guardar y entrar</button></div></form><p class="help mt">Con este usuario y esta contraseña entrarás desde ahora. Solo tú la sabrás. Si la olvidas, el administrador puede restablecerla. <a href="#" data-act="salir">Salir</a></p></div></div>';
   return h;
 }
 function codDecide(id,ok){
@@ -959,10 +995,10 @@ function render(){
   if(S.cfg.demo)h+='<div class="demo">Prototipo con datos ficticios · la información se guarda solo en este dispositivo</div>';
   if(!ui.user){h+=viewLogin();app().innerHTML=h;applyZoom();return;}
   var adm=ui.user.type==='admin';
-  if(!adm){var me0=socioById(ui.user.id);if(me0&&!me0.pinSet){h+=viewSetPin(me0);app().innerHTML=h;applyZoom();return;}}
+  if(!adm){var me0=socioById(ui.user.id);if(me0&&!me0.pinSet){h+=viewSetPin(me0);app().innerHTML=h;applyZoom();var ni=document.querySelector('[data-chkusr]');if(ni)checkUsuario(ni);return;}}
   var who=adm?'Administrador':(socioById(ui.user.id)||{nombre:'—'}).nombre;
   h+='<div class="top">'+LOGO+'<div><h1>'+esc(S.cfg.nombre)+'</h1><small>Hoy: '+fmtFecha(hoy())+'</small></div>'+campana()+'<div class="who">'+esc(who)+'<br><button data-act="salir">Salir</button></div></div>';
-  var tabs=adm?[['resumen','Resumen'],['panel','Panel'],['socios','Socios'],['vinc','Vinculaciones'],['benef','Beneficiarios'],['cuotas','Cuotas'],['soportes','Soportes'+(sopPend().length?' ('+sopPend().length+')':'')],['prestamos','Préstamos'+(solicitudesPend().length?' ('+solicitudesPend().length+')':'')],['fondo','Fondo ganador'],['docs','Documentos'],['reglamento','Reglamento'],['ajustes','Ajustes'],['datos','Datos']]:[['estado','Mi estado'],['panel','Panel'],['benef','Beneficiarios'],['cuotas','Mis cuotas'],['prestamos','Préstamos'],['soportes','Soportes'],['fondo','Fondo ganador'],['docs','Documentos'],['reglamento','Reglamento']];
+  var tabs=adm?[['resumen','Resumen'],['panel','Panel'],['socios','Socios'],['vinc','Vinculaciones'],['benef','Beneficiarios'],['cuotas','Cuotas'],['soportes','Soportes'+(sopPend().length?' ('+sopPend().length+')':'')],['prestamos','Préstamos'+(solicitudesPend().length?' ('+solicitudesPend().length+')':'')],['fondo','Fondo ganador'],['docs','Documentos'],['reglamento','Reglamento'],['ajustes','Ajustes'],['datos','Datos']]:[['estado','Mi estado'],['panel','Panel'],['benef','Beneficiarios'],['cuotas','Mis cuotas'],['prestamos','Préstamos'],['soportes','Soportes'],['fondo','Fondo ganador'],['docs','Documentos'],['reglamento','Reglamento'],['cuenta','Mi cuenta']];
   h+=barraHerramientas();
   h+='<div class="tabs">'+tabs.map(function(t){return '<button data-act="tab" data-v="'+t[0]+'" class="'+(ui.tab===t[0]?'on':'')+'">'+t[1]+'</button>';}).join('')+'</div>';
   h+='<main class="'+(adm?'wide':'')+'">';
@@ -976,7 +1012,8 @@ function viewLogin(){
   var h='<div class="login"><div class="big">'+LOGO.replace('class="logo"','')+'<h2>'+esc(S.cfg.nombre)+'</h2><div class="muted">Ahorro y préstamos entre socios</div></div><div class="card">';
   if(ui.err)h+='<div class="alert bad">'+esc(ui.err)+'</div>';
   if(!ui.loginAdmin){
-    h+='<form data-form="login"><label>Usuario (tu nombre)</label><input name="id" autocomplete="off" autocapitalize="none" placeholder="Ej.: Ana" value="'+esc(ui.lastId||'')+'"><label>PIN (últimos 4 dígitos de tu celular)</label><input name="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="••••"><div class="mt"><button class="btn primary" style="width:100%">Entrar</button></div></form>';
+    var rc=recGet(),uv=ui.lastId||rc.u||'';h+='<form data-form="login"><label>Usuario</label><input name="id" autocomplete="off" autocapitalize="none" placeholder="Tu usuario" value="'+esc(uv)+'"><label>Contraseña</label><input name="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="'+(rc.n===6&&uv&&norm(uv)===norm(rc.u||'')?'••••••':'••••')+'"><div class="mt"><button class="btn primary" style="width:100%">Entrar</button></div></form>';
+    if(rc.u)h+='<p class="help mt">¿No eres '+esc(rc.u)+'? <a href="#" data-act="olvidarusr">Cambiar usuario</a></p>';
     h+='<p class="help mt">¿Eres el administrador? <a href="#" data-act="admlogin">Entra aquí</a></p>';
     if(SERVER_URL&&!SRV_LISTO)h+='<div class="alert warn mt"><b>El servidor está vacío.</b><br>Carga aquí la copia de seguridad (archivo .json) con la clave de instalación que aparece en el registro de Apps Script.<label>Archivo de datos</label><input type="file" id="srvfile" accept=".json,application/json"><label>Clave de instalación</label><input id="srvkey" autocomplete="off"><div class="mt"><button class="btn primary" data-act="srvinit">Cargar datos</button></div></div>';
     if(S.cfg.demo)h+='<p class="help">Demo: usuario Ana y PIN 1011 (otros: Bruno 1022, Camila 1033…).</p>';
@@ -1001,6 +1038,7 @@ function memberTab(){
   var t=ui.tab;
   if(t==='estado')return mEstado(so);
   if(t==='benef')return benefTab(so);
+  if(t==='cuenta')return mCuenta(so);
   if(t==='notif'){var rr=notifView();marcarLeidas();return rr;}
   if(t==='soportes')return mSoportes(so);
   if(t==='panel')return panelView(false);
@@ -1252,7 +1290,8 @@ var A={
  pmes:function(el){ui.pmes=+el.dataset.m;render();},
  vback:function(){ui.prest=null;render();window.scrollTo(0,0);},
  pfil:function(el){ui.pfil=el.dataset.v;render();},
- tab:function(el){ui.tab=el.dataset.v;ui.prest=null;render();window.scrollTo(0,0);},
+ olvidarusr:function(){recClear();ui.lastId='';render();},
+ tab:function(el){ui.tab=el.dataset.v;ui.prest=null;ui.cmsg=null;render();window.scrollTo(0,0);},
  srvinit:function(){var f=document.getElementById('srvfile'),k=document.getElementById('srvkey');if(!f||!f.files[0]||!k||!k.value.trim()){alert('Elige el archivo y escribe la clave de instalación.');return;}var rd=new FileReader();rd.onload=function(){var o;try{o=JSON.parse(rd.result);if(!o.cfg||!o.socios)throw 0;}catch(x){alert('El archivo no es una copia válida.');return;}srvBusy(true);srv({accion:'inicializar',setup:k.value.trim(),estado:o}).then(function(r){srvBusy(false);if(r.ok){SRV_LISTO=true;ui.err='';alert('Datos cargados. Ya puedes entrar como administrador.');render();}else{alert(r.error==='clave_instalacion'?'La clave de instalación no es correcta.':'No se pudo cargar ('+(r.error||'error')+').');}}).catch(function(){srvBusy(false);alert('Sin conexión con el servidor.');});};rd.readAsText(f.files[0]);},
  admlogin:function(){ui.loginAdmin=true;ui.err='';render();},
  sociologin:function(){ui.loginAdmin=false;ui.err='';render();},
@@ -1277,7 +1316,7 @@ var A={
   benadd:function(el){var so=socioById(+el.dataset.s);if(!so||!benefPuede(so.id))return;modal('Agregar beneficiario de '+so.nombre.split(' ')[0],benefCampos(null,100-benefSum(so)),[CANCEL,{label:'Guardar',cls:'primary',fn:function(v){var b=benefLeer(v,so,-1);if(!b)return false;so.beneficiarios=benefArr(so).concat([b]);save();render();}}]);},
   benedit:function(el){var so=socioById(+el.dataset.s),i=+el.dataset.i;if(!so||!benefPuede(so.id)||!benefArr(so)[i])return;modal('Editar beneficiario',benefCampos(so.beneficiarios[i]),[CANCEL,{label:'Guardar',cls:'primary',fn:function(v){var b=benefLeer(v,so,i);if(!b)return false;so.beneficiarios=so.beneficiarios.slice();so.beneficiarios[i]=b;save();render();}}]);},
   benquitar:function(el){var so=socioById(+el.dataset.s),i=+el.dataset.i;if(!so||!benefPuede(so.id)||!benefArr(so)[i])return;if(!confirm('¿Quitar a '+so.beneficiarios[i].nombre+' de los beneficiarios?'))return;so.beneficiarios=so.beneficiarios.filter(function(x,k){return k!==i;});save();render();},
-  editsocio:function(el){var s=socioById(+el.dataset.id);modal('Socio '+s.id,fld('nombre','Nombre',s.nombre)+fld('usuario','Usuario para ingresar',s.usuario||'')+fld('cuota','Cuota mensual',s.cuota,'number')+fld('cedula','Cédula',s.cedula||'','text','inputmode="numeric"')+fld('correo','Correo electrónico',s.correo||'','email')+fld('tel','Teléfono',s.tel,'tel')+fld('ingreso','Vinculado desde',((s.periodos||[]).slice(-1)[0]||{}).ingreso||S.cfg.inicio,'date')+fld('pin','PIN (vacío = últimos 4 dígitos del celular)',s.pin||'')+'<h4 style="margin:14px 0 2px">Cuenta para consignarle (solo la ves tú)</h4>'+fld('banco','Banco o billetera (cuenta para consignarle)',(s.cuenta||{}).banco||'')+sel('tipoc','Tipo de cuenta',[['Ahorros','Ahorros'],['Corriente','Corriente'],['Billetera','Billetera']],(s.cuenta||{}).tipo||'Ahorros')+fld('numc','Número de cuenta',(s.cuenta||{}).numero||'')+fld('titc','Titular de la cuenta (si es otra persona, escríbelo)',(s.cuenta||{}).titular||'')+fld('cedt','Cédula del titular',(s.cuenta||{}).cedTitular||'','text','inputmode="numeric"'),[CANCEL,{label:'Eliminar',cls:'danger',fn:function(){if((s.periodos||[]).some(function(q){return q.retiro;})||(s.periodos||[]).length>1){alert('Este socio tiene retiros registrados y no se puede eliminar.');return false;}if(!confirm('¿Eliminar a '+s.nombre+' y sus pagos?'))return false;S.socios=S.socios.filter(function(x){return x.id!==s.id;});Object.keys(S.pagos).forEach(function(k){if(k.split('|')[0]==String(s.id))delete S.pagos[k];});save();render();}},{label:'Guardar',cls:'primary',fn:function(v){s.nombre=v.nombre.trim()||s.nombre;s.cuota=Math.max(S.cfg.cuotaMin,num(v.cuota));s.tel=v.tel.trim();s.cedula=(v.cedula||'').replace(/\D/g,'')||undefined;s.correo=(v.correo||'').trim()||undefined;s.usuario=v.usuario.trim()||undefined;s.pin=v.pin.trim()||undefined;s.cuenta=(v.numc||'').trim()?{banco:(v.banco||'').trim(),tipo:v.tipoc,numero:v.numc.trim(),titular:(v.titc||'').trim()||s.nombre,cedTitular:(v.cedt||'').replace(/\D/g,'')||undefined}:undefined;if(v.ingreso&&s.periodos&&s.periodos.length)s.periodos[s.periodos.length-1].ingreso=v.ingreso;save();render();}}]);},
+  editsocio:function(el){var s=socioById(+el.dataset.id);modal('Socio '+s.id,fld('nombre','Nombre',s.nombre)+fld('usuario','Usuario para ingresar',s.usuario||'')+fld('cuota','Cuota mensual',s.cuota,'number')+fld('cedula','Cédula',s.cedula||'','text','inputmode="numeric"')+fld('correo','Correo electrónico',s.correo||'','email')+fld('tel','Teléfono',s.tel,'tel')+fld('ingreso','Vinculado desde',((s.periodos||[]).slice(-1)[0]||{}).ingreso||S.cfg.inicio,'date')+fld('pin','PIN (vacío = últimos 4 dígitos del celular)',s.pin||'')+'<h4 style="margin:14px 0 2px">Cuenta para consignarle (solo la ves tú)</h4>'+fld('banco','Banco o billetera (cuenta para consignarle)',(s.cuenta||{}).banco||'')+sel('tipoc','Tipo de cuenta',[['Ahorros','Ahorros'],['Corriente','Corriente'],['Billetera','Billetera']],(s.cuenta||{}).tipo||'Ahorros')+fld('numc','Número de cuenta',(s.cuenta||{}).numero||'')+fld('titc','Titular de la cuenta (si es otra persona, escríbelo)',(s.cuenta||{}).titular||'')+fld('cedt','Cédula del titular',(s.cuenta||{}).cedTitular||'','text','inputmode="numeric"'),[CANCEL,{label:'Eliminar',cls:'danger',fn:function(){if((s.periodos||[]).some(function(q){return q.retiro;})||(s.periodos||[]).length>1){alert('Este socio tiene retiros registrados y no se puede eliminar.');return false;}if(!confirm('¿Eliminar a '+s.nombre+' y sus pagos?'))return false;S.socios=S.socios.filter(function(x){return x.id!==s.id;});Object.keys(S.pagos).forEach(function(k){if(k.split('|')[0]==String(s.id))delete S.pagos[k];});save();render();}},{label:'Guardar',cls:'primary',fn:function(v){var nu0=(v.usuario||'').trim();if(nu0&&usuarioOcupadoLocal(nu0,s.id)){alert('Ese usuario ya lo usa otro socio. Elige otro.');return false;}s.nombre=v.nombre.trim()||s.nombre;s.cuota=Math.max(S.cfg.cuotaMin,num(v.cuota));s.tel=v.tel.trim();s.cedula=(v.cedula||'').replace(/\D/g,'')||undefined;s.correo=(v.correo||'').trim()||undefined;s.usuario=v.usuario.trim()||undefined;s.pin=v.pin.trim()||undefined;s.cuenta=(v.numc||'').trim()?{banco:(v.banco||'').trim(),tipo:v.tipoc,numero:v.numc.trim(),titular:(v.titc||'').trim()||s.nombre,cedTitular:(v.cedt||'').replace(/\D/g,'')||undefined}:undefined;if(v.ingreso&&s.periodos&&s.periodos.length)s.periodos[s.periodos.length-1].ingreso=v.ingreso;save();render();}}]);},
  addprest:function(){var opts=S.socios.map(function(s){return [s.id,s.id+'. '+s.nombre];}).concat([['ext','Persona externa']]);var cod=[['','— Ninguno —']].concat(S.socios.map(function(s){return [s.id,s.id+'. '+s.nombre];}));
   ui.viabSolicitud=false;modal('Nuevo préstamo',sel('quien','Prestatario',opts,S.socios[0]?S.socios[0].id:'')+fld('ext','Nombre (si es persona externa)')+sel('cod','Codeudor (socio)',cod,'')+fld('capital','Capital','','number')+'<div id="viab" class="mt"></div>'+fld('fecha','Fecha de desembolso',today(),'date')+fld('tasa','Interés mensual (%)',S.cfg.intSocio,'number','step="0.1"')+'<p class="help">Socios: '+S.cfg.intSocio+' %, externos: '+S.cfg.intExterno+' % según el reglamento.</p>',
    [CANCEL,{label:'Guardar',cls:'primary',fn:function(v){var cap=num(v.capital);if(cap<=0)return false;var ext=v.quien==='ext';if(ext&&!v.cod){alert('Una persona externa necesita un socio codeudor.');return false;}
@@ -1348,17 +1387,38 @@ document.addEventListener('submit',function(e){
   if(k==='login'){ui.lastId=v.id;
     if(ui.lock&&Date.now()<ui.lock){ui.err='Demasiados intentos. Espera un minuto.';render();return;}
     var cand=S.socios.filter(function(x){return !x.retirado&&norm(usuarioDe(x))===norm(v.id)&&pinDe(x)&&pinDe(x)===String(v.pin).trim();});
-    if(cand.length===1){ui.user={type:'socio',id:cand[0].id};ui.tab='estado';ui.err='';ui.lastId='';ui.fails=0;}
+    if(cand.length===1){recSet(String(v.id).trim(),String(v.pin).trim().length>=6?6:4);ui.user={type:'socio',id:cand[0].id};ui.tab='estado';ui.err='';ui.lastId='';ui.fails=0;}
     else if(cand.length>1){ui.err='Hay más de un socio con ese usuario y PIN. Pide al administrador que cambie uno.';}
-    else{ui.fails=(ui.fails||0)+1;if(ui.fails>=5){ui.lock=Date.now()+60000;ui.fails=0;ui.err='Demasiados intentos. Espera un minuto.';}else ui.err='Usuario o PIN incorrecto.';}
+    else{ui.fails=(ui.fails||0)+1;if(ui.fails>=5){ui.lock=Date.now()+60000;ui.fails=0;ui.err='Demasiados intentos. Espera un minuto.';}else ui.err='Usuario o contraseña incorrectos.';}
     render();}
-  else if(k==='setpin'){var so0=socioById(ui.user.id),a=String(v.p1).trim(),b=String(v.p2).trim();
-    if(!/^\d{6}$/.test(a)){ui.err='El PIN debe tener exactamente 6 dígitos.';}
-    else if(a!==b){ui.err='Los dos PIN no coinciden.';}
-    else if(/^(\d)\1{5}$/.test(a)||'0123456789012'.indexOf(a)>=0||'9876543210987'.indexOf(a)>=0){ui.err='Ese PIN es muy fácil de adivinar. Elige otro.';}
+  else if(k==='setpin'){var so0=socioById(ui.user.id),nu=String(v.nu||'').trim(),a=String(v.p1).trim(),b=String(v.p2).trim();ui.nuevoU=nu;
+    if(usuarioErr(nu)){ui.err=usuarioErr(nu);}
+    else if(!SERVER_URL&&usuarioOcupadoLocal(nu,so0.id)){ui.err='Ese usuario ya existe. Elige otro.';}
+    else if(!/^\d{6}$/.test(a)){ui.err='La contraseña debe tener exactamente 6 dígitos.';}
+    else if(a!==b){ui.err='Las dos contraseñas no coinciden.';}
+    else if(pinFacil(a)){ui.err='Esa contraseña es muy fácil de adivinar. Elige otra.';}
     else if(String(so0.tel||'').replace(/\D/g,'').slice(-6)===a){ui.err='No uses los últimos dígitos de tu celular.';}
-    else if(SERVER_URL){srvPin(a);return;}
-    else{so0.pin=a;so0.pinSet=true;save();ui.err='';ui.tab='estado';}
+    else if(SERVER_URL){srvCuenta(nu,a);return;}
+    else{so0.usuario=nu;so0.pin=a;so0.pinSet=true;recSet(nu,6);save();ui.err='';ui.nuevoU=null;ui.tab='estado';}
+    render();}
+  else if(k==='cuentausr'){var so1=socioById(ui.user.id),nu1=String(v.nu||'').trim(),pw=String(v.pw||'').trim();ui.cmsg=null;
+    if(usuarioErr(nu1))ui.cmsg=[0,usuarioErr(nu1)];
+    else if(norm(nu1)===norm(usuarioDe(so1)))ui.cmsg=[0,'Ese ya es tu usuario actual.'];
+    else if(!pw)ui.cmsg=[0,'Escribe tu contraseña actual para confirmar.'];
+    else if(SERVER_URL){srvCuentaMod({accion:'cambiarUsuario',nuevoUsuario:nu1},pw,function(){CRED.usuario=nu1;recSet(nu1,6);},'Listo: tu usuario ahora es '+nu1+'.');return;}
+    else if(String(pinDe(so1))!==pw)ui.cmsg=[0,'La contraseña actual no es correcta.'];
+    else if(usuarioOcupadoLocal(nu1,so1.id))ui.cmsg=[0,'Ese usuario ya existe. Elige otro.'];
+    else{so1.usuario=nu1;recSet(nu1,6);save();ui.cmsg=[1,'Listo: tu usuario ahora es '+nu1+'.'];}
+    render();}
+  else if(k==='cuentapin'){var so2=socioById(ui.user.id),pw2=String(v.pw||'').trim(),a2=String(v.p1||'').trim(),b2=String(v.p2||'').trim();ui.cmsg=null;
+    if(!pw2)ui.cmsg=[0,'Escribe tu contraseña actual.'];
+    else if(!/^\d{6}$/.test(a2))ui.cmsg=[0,'La contraseña nueva debe tener exactamente 6 dígitos.'];
+    else if(a2!==b2)ui.cmsg=[0,'Las dos contraseñas nuevas no coinciden.'];
+    else if(pinFacil(a2))ui.cmsg=[0,'Esa contraseña es muy fácil de adivinar. Elige otra.'];
+    else if(a2===pw2)ui.cmsg=[0,'La contraseña nueva debe ser distinta de la actual.'];
+    else if(SERVER_URL){srvCuentaMod({accion:'cambiarPin',nuevoPin:a2},pw2,function(){CRED.pin=a2;recSet(CRED.usuario,6);},'Listo: cambiaste tu contraseña.');return;}
+    else if(String(pinDe(so2))!==pw2)ui.cmsg=[0,'La contraseña actual no es correcta.'];
+    else{so2.pin=a2;save();ui.cmsg=[1,'Listo: cambiaste tu contraseña.'];}
     render();}
   else if(k==='loginadm'){if(String(v.pin)===String(S.cfg.adminPin)){ui.user={type:'admin'};ui.tab='resumen';ui.err='';}else ui.err='Clave incorrecta.';render();}
   else if(k==='resultado'){var r=String(v.r).trim();if(!/^\d{1,2}$/.test(r)){alert('Escribe dos cifras, de 00 a 99.');return;}var cur=fondoCalc().lista.filter(function(x){return x.sorteo.id===ui.sorteo;})[0];cur.sorteo.resultado=pad(parseInt(r,10));cur.sorteo.pago=null;S.notifs=(S.notifs||[]).filter(function(n){return !(n.tipo==='fondo'&&n.sorteo===cur.sorteo.id);});anunciarSorteo(cur.sorteo);save();render();alert('Resultado guardado. Se notificó a todos los socios.');}
@@ -1406,8 +1466,8 @@ function srvSave(){
 function srvLogin(usuario,pin,esAdm){ui.err='';srvBusy(true);
   srv({accion:'estado',usuario:usuario,pin:pin}).then(function(r){srvBusy(false);
     if(r.error==='bloqueado')ui.err='Demasiados intentos. Espera 15 minutos.';
-    else if(r.error)ui.err=esAdm?'Clave incorrecta.':'Usuario o PIN incorrecto.';
-    else{CRED={usuario:usuario,pin:pin};ui.user=r.sesion.tipo==='admin'?{type:'admin'}:{type:'socio',id:r.sesion.id};ui.tab=r.sesion.tipo==='admin'?'resumen':'estado';ui.err='';ui.lastId='';srvAdoptar(r.estado,r.v);}
+    else if(r.error)ui.err=esAdm?'Clave incorrecta.':'Usuario o contraseña incorrectos.';
+    else{CRED={usuario:usuario,pin:pin};if(!esAdm)recSet(usuario,String(pin).length>=6?6:4);ui.user=r.sesion.tipo==='admin'?{type:'admin'}:{type:'socio',id:r.sesion.id};ui.tab=r.sesion.tipo==='admin'?'resumen':'estado';ui.err='';ui.lastId='';srvAdoptar(r.estado,r.v);}
     render();}).catch(function(){srvBusy(false);ui.err='No hay conexión con el servidor.';render();});}
 function srvPin(nuevo){srvBusy(true);
   srv({accion:'crearPin',usuario:CRED.usuario,pin:CRED.pin,nuevoPin:nuevo}).then(function(r){
