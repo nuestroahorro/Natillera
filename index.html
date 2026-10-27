@@ -208,11 +208,11 @@ function logDiff(){
     else if(p[0]==='sl')out.push(a===undefined?'Se creó una solicitud de préstamo':'Solicitud de préstamo: pasó a "'+b+'"');
     else if(p[0]==='sp')out.push(a===undefined?'Se envió un soporte de pago':'Soporte de pago: pasó a "'+b+'"');
     else if(k==='otros')out.push('Cambió otros ingresos (polla, bingo)');
-    else if(k==='cfg'){var A=JSON.parse(a),B=JSON.parse(b);Object.keys(B).forEach(function(c){if(JSON.stringify(A[c])!==JSON.stringify(B[c])&&c!=='ultimaCopia'&&c!=='hoySim')out.push('Cambió el ajuste "'+c+'"');});}
+    else if(k==='cfg'){var A=JSON.parse(a),B=JSON.parse(b);Object.keys(B).forEach(function(c){if(JSON.stringify(A[c])!==JSON.stringify(B[c])&&c!=='ultimaCopia'&&c!=='hoySim'){if(c==='adminPin')out.push('Cambió la clave de administrador');else{var va=A[c],vb=B[c];out.push('Cambió el ajuste "'+c+'"'+((typeof vb!=='object'&&typeof va!=='object')?': '+(va===undefined||va===''?'(vacío)':va)+' → '+(vb===''?'(vacío)':vb):''));}}});}
     else if(k==='gan')out.push('Cambió el registro de ganadores');
     else if(k==='liq')out.push('Liquidó a un socio');
     else if(k==='ret')out.push('Registró un retiro o reincorporación de socio');});
-  if(out.length){S.log=S.log||[];var t=new Date().toISOString().slice(0,16).replace('T',' ');out.forEach(function(m){S.log.push({t:t,u:u,m:m});});if(S.log.length>600)S.log=S.log.slice(-600);}
+  if(out.length){S.log=S.log||[];var t=(function(){try{var q={};new Intl.DateTimeFormat('en-CA',{timeZone:'America/Bogota',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date()).forEach(function(x){q[x.type]=x.value;});return q.year+'-'+q.month+'-'+q.day+' '+q.hour+':'+q.minute;}catch(e){return new Date().toISOString().slice(0,16).replace('T',' ');}})();out.forEach(function(m){S.log.push({t:t,u:u,m:m});});if(S.log.length>600)S.log=S.log.slice(-600);}
   __snap=snapOf();
 }
 function save(){try{logDiff();}catch(e){}if(SERVER_URL){srvSave();return;}try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){memSave=JSON.stringify(S);}}
